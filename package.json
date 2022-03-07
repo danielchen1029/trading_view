@@ -6,7 +6,7 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "deploy:github": "ng deploy --base-href=/trading-view/",
+    "deploy:github": "ng deploy --base-href=/trading_view/",
     "test": "ng test"
   },
   "private": true,
