@@ -10,12 +10,18 @@ import {
 import { webSocket, WebSocketSubject } from 'rxjs/webSocket';
 import { KLineTrade } from '../models/k_line_trade.model';
 import { HttpClient, HttpParams } from '@angular/common/http';
+import { ExchangeInfo } from '../models/exchange-info.model';
 
 @Injectable({
   providedIn: 'root',
 })
-export class BinanceStreamService {
+export class ApiBinanceService {
+  private baseUrl = 'https://api3.binance.com';
   constructor(private http: HttpClient) {}
+
+  exchangeInfo(): Observable<ExchangeInfo> {
+    return this.http.get<ExchangeInfo>(`${this.baseUrl}/api/v3/exchangeInfo`);
+  }
 
   /**
    * @param symbol ex. btcusdt
@@ -34,7 +40,7 @@ export class BinanceStreamService {
     const httpParams = new HttpParams()
       .append('symbol', symbol)
       .append('interval', interval);
-    return this.http.get<any[][]>('https://api3.binance.com/api/v3/klines', {
+    return this.http.get<any[][]>(`${this.baseUrl}/api/v3/klines`, {
       params: httpParams,
     });
   }

@@ -1,1 +1,14 @@
-<div #tradingView style="display: flex; justify-content: center;"></div>
+<div class="grid">
+  <div class="col-12 md:col-6">
+    <p-dropdown
+      placeholder="Please Selected"
+      [options]="symbols"
+      optionLabel="symbol"
+      optionValue="symbol"
+      [(ngModel)]="selectedSymbol"
+    >
+    </p-dropdown>
+  </div>
+</div>
+
+<div #tradingView style="display: flex; justify-content: center"></div>

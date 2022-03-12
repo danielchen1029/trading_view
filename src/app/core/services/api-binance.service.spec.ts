@@ -1,13 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 
-import { BinanceStreamService } from './binance-stream.service';
+import { ApiBinanceService } from './api-binance.service';
 
 describe('BinanceStreamService', () => {
-  let service: BinanceStreamService;
+  let service: ApiBinanceService;
 
   beforeEach(() => {
     TestBed.configureTestingModule({});
-    service = TestBed.inject(BinanceStreamService);
+    service = TestBed.inject(ApiBinanceService);
   });
 
   it('should be created', () => {

@@ -14,8 +14,10 @@ import {
   ISeriesApi,
   UTCTimestamp,
 } from 'lightweight-charts';
+import { PrimeNGConfig } from 'primeng/api';
 import { Subject, switchMap, takeUntil } from 'rxjs';
-import { BinanceStreamService } from './core/services/binance-stream.service';
+import { Symbol } from './core/models/symbol.model';
+import { ApiBinanceService } from './core/services/api-binance.service';
 
 @Component({
   selector: 'app-root',
@@ -24,15 +26,24 @@ import { BinanceStreamService } from './core/services/binance-stream.service';
 })
 export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   title = 'trading-view';
+  selectedSymbol = '';
+  symbols: Symbol[] = [];
+
   @ViewChild('tradingView') tradingViewEleRef?: ElementRef<HTMLElement>;
   private candlestickSeries?: ISeriesApi<'Candlestick'>;
   private kData: CandlestickData[] = [];
-  private resetLastKData = false;
   private destroy$ = new Subject();
-  constructor(private binanceStream: BinanceStreamService) {}
+  constructor(
+    private binanceService: ApiBinanceService,
+    private primengConfig: PrimeNGConfig
+  ) {
+    this.primengConfig.ripple = true;
+  }
 
   ngOnInit(): void {
-    this.binanceStream
+    this.symbols = [{symbol: 'BTCUSDT'}]
+
+    this.binanceService
       .getOldKline('BTCUSDT', '1h')
       .pipe(
         takeUntil(this.destroy$),
@@ -45,7 +56,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
             low: parseFloat(item[3]),
           }));
           this.kData.push(...data);
-          return this.binanceStream.connectWebsocket('btcusdt', '1h');
+          return this.binanceService.connectWebsocket('btcusdt', '1h');
         })
       )
       .subscribe((data) => {
