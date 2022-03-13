@@ -32,13 +32,13 @@ export class ApiBinanceService {
     interval: string
   ): WebSocketSubject<KLineTrade> {
     return webSocket<KLineTrade>({
-      url: `wss://stream.binance.com:9443/ws/${symbol}@kline_1h`,
+      url: `wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@kline_${interval}`,
     });
   }
 
   getOldKline(symbol: string, interval: string): Observable<any[][]> {
     const httpParams = new HttpParams()
-      .append('symbol', symbol)
+      .append('symbol', symbol.toUpperCase())
       .append('interval', interval);
     return this.http.get<any[][]>(`${this.baseUrl}/api/v3/klines`, {
       params: httpParams,

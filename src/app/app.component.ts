@@ -1,5 +1,4 @@
 import {
-  AfterContentInit,
   AfterViewInit,
   Component,
   ElementRef,
@@ -15,8 +14,8 @@ import {
   UTCTimestamp,
 } from 'lightweight-charts';
 import { PrimeNGConfig } from 'primeng/api';
-import { Subject, switchMap, takeUntil } from 'rxjs';
-import { Symbol } from './core/models/symbol.model';
+import { iif, Subject, Subscription, switchMap, takeUntil } from 'rxjs';
+import { IDropdown } from './core/models/dropdown.model';
 import { ApiBinanceService } from './core/services/api-binance.service';
 
 @Component({
@@ -27,11 +26,20 @@ import { ApiBinanceService } from './core/services/api-binance.service';
 export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   title = 'trading-view';
   selectedSymbol = '';
-  symbols: Symbol[] = [];
+  selectedInterval = '';
+  symbols: IDropdown[] = [];
+  intervals: IDropdown[] = [
+    { label: '1h', value: '1h' },
+    { label: '4h', value: '4h' },
+    { label: '8h', value: '8h' },
+    { label: '1d', value: '1d' },
+  ];
+  kData: CandlestickData[] = [];
 
   @ViewChild('tradingView') tradingViewEleRef?: ElementRef<HTMLElement>;
   private candlestickSeries?: ISeriesApi<'Candlestick'>;
-  private kData: CandlestickData[] = [];
+  private timeLimit = 3600;
+  private stream$?: Subscription;
   private destroy$ = new Subject();
   constructor(
     private binanceService: ApiBinanceService,
@@ -41,43 +49,27 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.symbols = [{symbol: 'BTCUSDT'}]
-
     this.binanceService
-      .getOldKline('BTCUSDT', '1h')
-      .pipe(
-        takeUntil(this.destroy$),
-        switchMap((oldData) => {
-          const data: CandlestickData[] = oldData.map((item) => ({
-            time: (item[0] / 1000) as UTCTimestamp,
-            open: parseFloat(item[1]),
-            close: parseFloat(item[4]),
-            high: parseFloat(item[2]),
-            low: parseFloat(item[3]),
-          }));
-          this.kData.push(...data);
-          return this.binanceService.connectWebsocket('btcusdt', '1h');
-        })
-      )
-      .subscribe((data) => {
-        const _kData = {
-          time: (data.E / 1000) as UTCTimestamp,
-          open: parseFloat(data.k.o),
-          close: parseFloat(data.k.c),
-          high: parseFloat(data.k.h),
-          low: parseFloat(data.k.l),
-        };
-        this.kData[this.kData.length - 1] = _kData;
-        if (this.candlestickSeries) {
-          this.candlestickSeries.setData(this.kData);
-        }
+      .exchangeInfo()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((res) => {
+        this.symbols = res.symbols.map((item) => ({
+          label: item.symbol,
+          value: item.symbol,
+        }));
+        this.selectedSymbol =
+          localStorage.getItem('defaultSymbol') ?? this.symbols[0].value;
+        this.selectedInterval =
+          localStorage.getItem('defaultInterval') ?? this.intervals[0].value;
+        this.setTimeLimit();
+        this.queryOldKlineData();
       });
   }
 
   ngAfterViewInit(): void {
     if (this.tradingViewEleRef) {
       const chart = createChart(this.tradingViewEleRef.nativeElement, {
-        width: 600,
+        width: 800,
         height: 400,
         crosshair: {
           mode: CrosshairMode.Normal,
@@ -85,6 +77,91 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       });
       this.candlestickSeries = chart.addCandlestickSeries();
     }
+  }
+
+  private queryOldKlineData(): void {
+    this.kData = [];
+    this.binanceService
+      .getOldKline(this.selectedSymbol, this.selectedInterval)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((res) => {
+        this.kData = res.map((item) => ({
+          time: (item[0] / 1000) as UTCTimestamp,
+          open: parseFloat(item[1]),
+          close: parseFloat(item[4]),
+          high: parseFloat(item[2]),
+          low: parseFloat(item[3]),
+        }));
+        this.drawData();
+        this.storeSelection();
+        this.connectStream();
+      });
+  }
+
+  private connectStream(): void {
+    if (this.stream$) {
+      this.stream$.unsubscribe();
+    }
+
+    this.stream$ = this.binanceService
+      .connectWebsocket(this.selectedSymbol, this.selectedInterval)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((res) => {
+        if (this.kData.length === 0) {
+          return;
+        }
+        const data = {
+          time: (res.E / 1000) as UTCTimestamp,
+          open: parseFloat(res.k.o),
+          close: parseFloat(res.k.c),
+          high: parseFloat(res.k.h),
+          low: parseFloat(res.k.l),
+        };
+        const t1 = data.time as number
+        const t2 = this.kData[this.kData.length - 1].time as number;
+        if (t1 - t2 < this.timeLimit) {
+          this.kData[this.kData.length - 1] = data;
+        }
+        if (t1 - t2 === this.timeLimit) {
+          this.kData.push(data);
+        }
+        this.drawData();
+      });
+  }
+
+  private drawData(): void {
+    if (this.candlestickSeries) {
+      this.candlestickSeries.setData(this.kData);
+    }
+  }
+
+  private storeSelection(): void {
+    localStorage.setItem('defaultSymbol', this.selectedSymbol);
+    localStorage.setItem('defaultInterval', this.selectedInterval);
+  }
+
+  private setTimeLimit(): void {
+    const time = parseInt(this.selectedInterval.split('')[0], 10);
+    const unit = this.selectedInterval.split('')[1];
+
+    switch (unit) {
+      case 'h':
+        this.timeLimit = 3600 * time;
+        break;
+      case 'd':
+        this.timeLimit = 3600 * 24 * time;
+        break;
+    }
+  }
+
+  selectionSymbol(): void {
+    this.queryOldKlineData();
+  }
+
+  clickInterval(interval: IDropdown): void {
+    this.selectedInterval = interval.value;
+    this.setTimeLimit();
+    this.queryOldKlineData();
   }
 
   ngOnDestroy(): void {

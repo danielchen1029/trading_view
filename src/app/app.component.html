@@ -1,14 +1,42 @@
 <div class="grid">
   <div class="col-12 md:col-6">
-    <p-dropdown
-      placeholder="Please Selected"
-      [options]="symbols"
-      optionLabel="symbol"
-      optionValue="symbol"
-      [(ngModel)]="selectedSymbol"
-    >
-    </p-dropdown>
+    <div style="padding: 50px 0 0 50px">
+      <div class="grid">
+        <div class="col-12 md:col-6">
+          <p-dropdown
+            placeholder="Please Selected"
+            [options]="symbols"
+            optionLabel="label"
+            optionValue="value"
+            [(ngModel)]="selectedSymbol"
+            [virtualScroll]="true"
+            [itemSize]="10"
+            (onChange)="selectionSymbol()"
+            [filter]="true"
+            filterBy="label"
+          >
+          </p-dropdown>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="col-12">
+          <button
+            pButton
+            class="p-button-raised p-button-rounded mr-3"
+            style="width: 15%"
+            *ngFor="let interval of intervals"
+            [label]="interval.label"
+            (click)="clickInterval(interval)"
+            [ngClass]="{
+              'p-button-danger': selectedInterval === interval.value,
+              'p-button-secondary': selectedInterval !== interval.value
+            }"
+          ></button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 md:col-6 mt-3">
+    <div #tradingView></div>
   </div>
 </div>
-
-<div #tradingView style="display: flex; justify-content: center"></div>
